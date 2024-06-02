@@ -10,10 +10,10 @@ A silly text editor, inspired by [OneNote](https://en.wikipedia.org/wiki/Microso
 
 # plan
 
-- [ ] click to move cursor
-- [ ] click to select cell
+- [x] click to move cursor
+- [x] click to select cell
 - [ ] draw cell border
-- [ ] zoom font size
+- [x] zoom font size
 - [ ] key cursors
 - [ ] undo & redo
 - [ ] save & load

@@ -495,10 +495,14 @@ def on_key_press(event):
     elif keysym == 'Right':
         line = current_lines[current_line]
         current_col = min(len(line), current_col + 1)
+    elif keysym == 'Escape':
+        pass
     elif char == '\r':
         current_lines.insert(current_line+1, '')
         current_line += 1
         current_col = 0
+    elif char == '':
+        pass
     else:
         current_col += 1
         #current_lines[current_line] += char
@@ -576,8 +580,10 @@ def click_cell(event, cell_id):
     global current_line
     global current_col
 
+    #print(f'{cell_id=}')
     if cell_id == current_cell:
-        return
+        pass
+        #return
 
     canvas.itemconfig(current_cell, fill=unselected_cell_colour)
 
@@ -588,6 +594,37 @@ def click_cell(event, cell_id):
     current_lines = text.split('\n')
     current_line = 0
     current_col  = 0
+
+    item_x, item_y = canvas.coords(current_cell)
+
+    delta_x = canvas.canvasx(event.x) - item_x
+    delta_y = canvas.canvasy(event.y) - item_y
+    #print(f'{delta_y=:2.2f} = {event.y=} - {item_y=}')
+    #print(f'{delta_x=}, {delta_y=}')
+
+    #padding = int(max(2, 2 * zoom_scales[zoom_level]))
+
+    font_metrics = cell_font_spec.metrics()
+    ##print(font_metrics)
+    linespace = font_metrics['linespace']
+    current_line = min(len(current_lines), max(0, int(delta_y / linespace)))
+    #print(f'{current_line=} = {delta_y:2.2f} / {linespace}')
+
+    #print(f'{current_lines=}')
+    line = current_lines[current_line]
+    padding = int(max(2, 2 * zoom_scales[zoom_level]))
+
+    for i in range(1, len(line)+1):
+        line_subset = line[:i]
+        #print(f'{i} {line[:i]}')
+        x_offset = cell_font_spec.measure(line_subset) + padding
+        #print(f'{delta_x=} {x_offset=}')
+        if x_offset > delta_x:
+            break
+    else:
+        print('for else')
+
+    current_col = i - 1
 
     update_text_cursor()
 
