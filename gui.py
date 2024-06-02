@@ -472,20 +472,39 @@ def on_key_press(event):
     char = event.char
     keysym = event.keysym
 
-    if char == '\b':
+    if keysym == 'BackSpace':
         line = current_lines[current_line]
-        if line == '':
+        if current_col == 0:
             print('delete line')
         else:
-            current_col -= 1
-            current_lines[current_line] = current_lines[current_line][:-1]
+            line = current_lines[current_line]
+            lhs = line[:current_col-1] 
+            rhs = line[current_col:]
+            #print((line, lhs, rhs))
+            new_line = lhs + rhs
+            current_lines[current_line] = new_line
+            current_col = max(0, current_col - 1)
+    elif keysym == 'Delete':
+        pass
+    elif keysym == 'Up':
+        pass
+    elif keysym == 'Down':
+        pass
+    elif keysym == 'Left':
+        current_col = max(0, current_col - 1)
+    elif keysym == 'Right':
+        line = current_lines[current_line]
+        current_col = min(len(line), current_col + 1)
     elif char == '\r':
         current_lines.insert(current_line+1, '')
         current_line += 1
         current_col = 0
     else:
         current_col += 1
-        current_lines[current_line] += char
+        #current_lines[current_line] += char
+        line = current_lines[current_line]
+        new_line = line[:current_col-1] + char + line[current_col-1:]
+        current_lines[current_line] = new_line
 
     text = '\n'.join(current_lines)
 
@@ -523,6 +542,8 @@ def update_text_cursor():
     x = cell_x + x_offset
 
     set_cursor(x, y)
+
+    canvas.tag_raise(cursor_id)
 
 
 def create_cursor(x, y):
