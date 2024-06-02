@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter.ttk import *
 from math import sqrt
+from functools import partial
 import tkinter.font as tkfont
 
 root = Tk()
@@ -8,6 +9,8 @@ root.geometry('800x600')
 root.title('Infinite Waffle')
 
 background_colour = '#222'
+selected_cell_colour = 'green'
+unselected_cell_colour = 'cyan'
 
 toolbox_font_spec = tkfont.Font(family="Georgia", size=20)
 
@@ -546,6 +549,30 @@ def flash_cursor():
     canvas.after(1000, flash_cursor)
 
 
+def click_cell(event, cell_id):
+    global current_cell
+    global current_lines
+    global current_line
+    global current_col
+
+    if cell_id == current_cell:
+        return
+
+    canvas.itemconfig(current_cell, fill=unselected_cell_colour)
+
+    current_cell = cell_id
+    canvas.itemconfig(current_cell, fill=selected_cell_colour)
+
+    text = canvas.itemcget(current_cell, 'text')
+    current_lines = text.split('\n')
+    current_line = 0
+    current_col  = 0
+
+    update_text_cursor()
+
+    return 'break'
+
+
 def create_cell(x, y):
     global current_cell
     global current_lines
@@ -556,6 +583,8 @@ def create_cell(x, y):
     y -= font_metrics['ascent'] // 2
 
     set_cursor(x, y)
+
+    canvas.itemconfig(current_cell, fill=unselected_cell_colour)
 
     current_cell = canvas.create_text(
             x, y,
@@ -569,6 +598,8 @@ def create_cell(x, y):
     current_col  = 0
 
     current_line_width = 0
+
+    canvas.tag_bind(current_cell, '<Button-1>', partial(click_cell, cell_id=current_cell))
 
 
 def create_cell_here(event):
