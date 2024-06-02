@@ -10,7 +10,9 @@ root.title('Infinite Waffle')
 background_colour = '#222'
 
 toolbox_font_spec = tkfont.Font(family="Georgia", size=20)
-font_metrics = toolbox_font_spec.metrics()
+
+cell_font_spec = tkfont.Font(family="Georgia", size=20)
+font_metrics = cell_font_spec.metrics()
 
 zoom_level = 5
 zoom_scales = [
@@ -175,7 +177,7 @@ def on_windows_zoom(event):
     else:
         zoom(x, y, -1)
 
-    update_brush_cursor(event)
+    #update_brush_cursor(event)
 
 
 def zoom(x, y, step):
@@ -208,13 +210,28 @@ def zoom(x, y, step):
 
     all_items = canvas.find_all()
 
-    for item_id in all_items:
-        if canvas.type(item_id) == 'line':
-            current_width = float(canvas.itemcget(item_id, 'width'))
-            new_width = current_width * zoom_step_scale
-            canvas.itemconfig(item_id, width=new_width)
+    new_size = int(20 * next_zoom_scale)
 
-    set_brush_size(brush_size)
+    cell_font_spec.configure(size=new_size)
+
+    for item_id in all_items:
+        item_type = canvas.type(item_id)
+        match item_type:
+            case 'line':
+                current_width = float(canvas.itemcget(item_id, 'width'))
+                new_width = current_width * zoom_step_scale
+                canvas.itemconfig(item_id, width=new_width)
+            case 'text':
+                #font = canvas.itemcget(item_id, 'font')
+                #print(type(font))
+                pass
+            case 'rectangle':
+                pass # already zoomed by canvas.scale
+            case other:
+                #print(f'failed to zoom {item_type=}')
+                pass
+
+    #set_brush_size(brush_size)
 
     zoom_scroll_region(zoom_step_scale)
 
@@ -255,7 +272,7 @@ def update_brush_cursor(event):
 
 
 def motion(event):
-    update_brush_cursor(event)
+    #update_brush_cursor(event)
 
     #print(f'{current_tool=}')
     tool_spec = tools.get(current_tool, None)
@@ -328,7 +345,7 @@ def on_alt_b3_motion(event):
     event.x = brush_size_last_x
     event.y = brush_size_last_y
 
-    update_brush_cursor(event)
+    #update_brush_cursor(event)
     return 'break'
 
 
@@ -444,7 +461,6 @@ def zoom_to_level(target_level):
 #select_brush_tool()
 
 def on_key_press(event):
-    global current_text
     global current_line
     global current_col
     global current_line_width
@@ -452,24 +468,30 @@ def on_key_press(event):
 
     char = event.char
     keysym = event.keysym
+
     if char == '\b':
-        current_text = current_text[:-1]
+        line = current_lines[current_line]
+        if line == '':
+            print('delete line')
+        else:
+            current_col -= 1
+            current_lines[current_line] = current_lines[current_line][:-1]
+    elif char == '\r':
+        current_lines.insert(current_line+1, '')
+        current_line += 1
+        current_col = 0
     else:
-        current_text += char
-    canvas.itemconfig(current_cell, text=current_text)
+        current_col += 1
+        current_lines[current_line] += char
+
+    text = '\n'.join(current_lines)
+
+    canvas.itemconfig(current_cell, text=text)
+
+    update_text_cursor()
 
 
-    lines = current_text.split('\n')
-    line = lines[current_line]
-
-    padding = 2
-    new_line_width = toolbox_font_spec.measure(line) + padding
-    delta_x = new_line_width - current_line_width
-    move_cursor(delta_x)
-    current_line_width = new_line_width
-
-
-current_text = ''
+current_lines = ['']
 current_line = 0
 current_col  = 0
 current_line_width = 0
@@ -480,6 +502,25 @@ cursor_width = 4
 cursor_height = font_metrics["ascent"] + 2
 
 cursor_id = None
+
+def update_text_cursor():
+    line = current_lines[current_line]
+
+    line_subset = line[:current_col]
+
+    padding = int(max(2, 2 * zoom_scales[zoom_level]))
+    x_offset = cell_font_spec.measure(line_subset) + padding
+    font_metrics = cell_font_spec.metrics()
+    #print(font_metrics)
+    linespace = font_metrics['linespace']
+    y_offset = linespace * current_line
+    cell_x, cell_y, *_= canvas.coords(current_cell)
+
+    y = cell_y + y_offset
+    x = cell_x + x_offset
+
+    set_cursor(x, y)
+
 
 def create_cursor(x, y):
     global cursor_id
@@ -497,8 +538,6 @@ def set_cursor(x=0, y=0):
     delta_y = y - old_y
     canvas.move(cursor_id, delta_x, delta_y)
 
-def move_cursor(delta_x=0, delta_y=0):
-    canvas.move(cursor_id, delta_x, delta_y)
 
 def flash_cursor():
     global cursor_colour
@@ -509,7 +548,7 @@ def flash_cursor():
 
 def create_cell(x, y):
     global current_cell
-    global current_text
+    global current_lines
     global current_line
     global current_col
     global current_line_width
@@ -518,14 +557,14 @@ def create_cell(x, y):
 
     set_cursor(x, y)
 
-    current_text = ''
     current_cell = canvas.create_text(
             x, y,
             text='',
-            font=toolbox_font_spec,
+            font=cell_font_spec,
             fill=colours['Cyan'],
             anchor='nw')
 
+    current_lines = ['']
     current_line = 0
     current_col  = 0
 
