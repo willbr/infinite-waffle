@@ -467,7 +467,7 @@ def on_key_press(event):
     global current_line
     global current_col
     global current_line_width
-    #print(event)
+    #print(f'{event=} {current_line=} {current_col=}')
 
     char = event.char
     keysym = event.keysym
@@ -516,6 +516,8 @@ def on_key_press(event):
 
     update_text_cursor()
 
+    reset_cursor_flash()
+
 
 current_lines = ['']
 current_line = 0
@@ -524,7 +526,7 @@ current_line_width = 0
 
 
 cursor_colour = 'white'
-cursor_width = 4
+cursor_width = 2
 cursor_height = font_metrics["ascent"] + 2
 
 cursor_id = None
@@ -557,7 +559,8 @@ def create_cursor(x, y):
             y,
             x+(cursor_width//2),
             y+cursor_height,
-            fill=cursor_colour)
+            fill=cursor_colour,
+            tags='cursor')
 
 
 def set_cursor(x=0, y=0):
@@ -567,11 +570,20 @@ def set_cursor(x=0, y=0):
     canvas.move(cursor_id, delta_x, delta_y)
 
 
+flash_task_id = None
 def flash_cursor():
-    global cursor_colour
-    cursor_colour = "red" if cursor_colour == 'white' else "white"
-    canvas.itemconfig(cursor_id, fill=cursor_colour)
-    canvas.after(1000, flash_cursor)
+    global flash_task_id
+    state = canvas.itemcget(cursor_id, 'state')
+    new_state = "normal" if state == 'hidden' else "hidden"
+    canvas.itemconfig(cursor_id, state=new_state)
+    flash_task_id = canvas.after(1000, flash_cursor)
+
+
+def reset_cursor_flash():
+    global flash_task_id
+    canvas.after_cancel(flash_task_id)
+    canvas.itemconfig(cursor_id, state='normal')
+    flash_task_id = canvas.after(1000, flash_cursor)
 
 
 def click_cell(event, cell_id):
@@ -579,6 +591,8 @@ def click_cell(event, cell_id):
     global current_lines
     global current_line
     global current_col
+
+    #print(f'click_cell {event=} {cell_id=}')
 
     #print(f'{cell_id=}')
     if cell_id == current_cell:
@@ -595,6 +609,7 @@ def click_cell(event, cell_id):
     current_line = 0
     current_col  = 0
 
+    #print(f'{current_cell=}')
     item_x, item_y = canvas.coords(current_cell)
 
     delta_x = canvas.canvasx(event.x) - item_x
@@ -607,10 +622,10 @@ def click_cell(event, cell_id):
     font_metrics = cell_font_spec.metrics()
     ##print(font_metrics)
     linespace = font_metrics['linespace']
-    current_line = min(len(current_lines), max(0, int(delta_y / linespace)))
+    current_line = min(len(current_lines)-1, max(0, int(delta_y / linespace)))
     #print(f'{current_line=} = {delta_y:2.2f} / {linespace}')
 
-    #print(f'{current_lines=}')
+    #print(f'{current_lines=} {current_line=}')
     line = current_lines[current_line]
     padding = int(max(2, 2 * zoom_scales[zoom_level]))
 
@@ -620,15 +635,34 @@ def click_cell(event, cell_id):
         x_offset = cell_font_spec.measure(line_subset) + padding
         #print(f'{delta_x=} {x_offset=}')
         if x_offset > delta_x:
+            current_col = i - 1
             break
     else:
-        print('for else')
+        current_col = len(line)
 
-    current_col = i - 1
 
     update_text_cursor()
+    reset_cursor_flash()
 
-    return 'break'
+
+def click_near_cell(event):
+    #print(f'near {event=}')
+    ignore_list = set(canvas.find_withtag("cursor"))
+    #print(f'{ignore_list=}')
+    current = set(canvas.find_withtag("current")) - ignore_list
+    #print(f'{current=}')
+    if current:
+        #print('over item')
+        return
+
+    nearest_items = set(canvas.find_closest(event.x, event.y)) - ignore_list
+    #print(f'{nearest_item=}')
+
+    if not nearest_items:
+        return
+
+    nearest_item = next(iter(nearest_items))
+    click_cell(event, cell_id=nearest_item)
 
 
 def create_cell(x, y):
@@ -670,13 +704,14 @@ create_cursor(100, 50)
 flash_cursor()
 create_cell(100, 50)
 
-root.bind('<KeyPress-Tab>', toggle_toolbox)
+root.bind('<KeyPress-F1>', toggle_toolbox)
 
 #root.bind('<KeyPress-u>', start_undoing)
 #root.bind('<KeyPress-y>', start_redoing)
 
 canvas.bind('<MouseWheel>', on_windows_zoom)
 
+canvas.bind('<Button-1>', click_near_cell)
 canvas.bind('<Double-Button-1>', create_cell_here)
 #canvas.bind('<Button-1>', lambda e: print(e))
 #canvas.bind('<Button-2>', lambda e: print(e))
