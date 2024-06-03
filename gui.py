@@ -345,10 +345,13 @@ def on_key_press(event):
     elif keysym == 'Delete':
         pass
     elif keysym == 'Up':
-        pass
+        current_line = max(0, current_line - 1)
     elif keysym == 'Down':
-        pass
+        current_line = min(len(current_lines)-1, current_line + 1)
     elif keysym == 'Left':
+        line = current_lines[current_line]
+        if current_col > len(line):
+            current_col = len(line)
         current_col = max(0, current_col - 1)
     elif keysym == 'Right':
         line = current_lines[current_line]
