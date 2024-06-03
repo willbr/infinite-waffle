@@ -61,9 +61,6 @@ toolbox_label_style.configure('Custom.TLabel', background='#888')
 
 toolbox = Frame(root, style='Custom.TFrame')
 
-brush_label = Label(toolbox, text=f'N', font=toolbox_font_spec, style='Custom.TLabel')
-brush_label.pack(side=TOP, padx=10, pady=10)
-
 tool_label = Label(toolbox, text=f'tool', font=toolbox_font_spec, style='Custom.TLabel')
 tool_label.pack(side=TOP, padx=10, pady=10)
 
@@ -77,17 +74,9 @@ zoom_label.pack(side=TOP, padx=10, pady=10)
 hscrollbar.config(command=canvas.xview)
 vscrollbar.config(command=canvas.yview)
 
-brush_size = None
-brush_size_on_canvas = None
-brush_color = '#8B88EF'
-
 current_tool = None
-
 current_cell = None
 
-
-undo_stack = []
-redo_stack = []
 
 layer = {
         'outline': {'visible': True},
@@ -95,16 +84,6 @@ layer = {
         'sketch': {'visible': True},
         'background': {'visible': True},
         }
-
-def set_brush_size(new_size):
-    global brush_size
-    global brush_size_on_canvas
-    brush_size = int(min(max(2, new_size), 200))
-    brush_label.configure(text=f'{brush_size:3d}')
-    brush_size_on_canvas = int(max(2, brush_size * zoom_scales[zoom_level]))
-    brush_size_on_canvas -= brush_size_on_canvas % 2 # bugfix; removes shimmering artifacts
-    #print(f'{brush_size_on_canvas=}')
-
 
 def get_visible_ids(tag_name=None, ignore_tags=None):
     ignore_list = []
@@ -122,11 +101,6 @@ def get_live_ids(tag_name=None):
     deleted_ids = canvas.find_withtag('deleted')
     live_layer_ids = tuple(set(all_items) - set(deleted_ids))
     return live_layer_ids
-
-
-def sort_objects_by_layer():
-    for layer_name in ['background', 'sketch', 'colour', 'outline']:
-        canvas.tag_raise(layer_name)
 
 
 def on_canvas_resize(event=None):
@@ -180,8 +154,6 @@ def on_windows_zoom(event):
     else:
         zoom(x, y, -1)
 
-    #update_brush_cursor(event)
-
 
 def zoom(x, y, step):
     global zoom_level
@@ -234,8 +206,6 @@ def zoom(x, y, step):
                 #print(f'failed to zoom {item_type=}')
                 pass
 
-    #set_brush_size(brush_size)
-
     zoom_scroll_region(zoom_step_scale)
 
 
@@ -259,46 +229,12 @@ def zoom_scroll_region(zoom_step_scale):
     on_canvas_resize()
 
 
-
-
-def echo_event(event):
-    print(event)
-    return "break"
-
-
-def update_brush_cursor(event):
-    #print(event)
-    r = brush_size_on_canvas / 2
-    x, y = canvas.canvasx(event.x), canvas.canvasy(event.y)
-    x0, y0 = x - r, y - r
-    x1, y1 = x + r, y + r
-
-
-def motion(event):
-    #update_brush_cursor(event)
-
-    #print(f'{current_tool=}')
-    tool_spec = tools.get(current_tool, None)
-    if tool_spec is None:
-        return
-
-    tool_fn = tools[current_tool].get('motion', None)
-    if tool_fn is None:
-        return
-
-    tool_fn(event)
-
-
 #canvas.config(cursor='crosshair')
 #canvas.config(cursor='none')
+canvas.config(cursor="ibeam")
 
 canvas.bind('<Configure>', on_canvas_resize)
 
-#canvas.bind('<Motion>', motion)
-
-#canvas.bind('<ButtonPress-2>', echo_event)
-#canvas.bind('<B2-Motion>', echo_event)
-#canvas.bind('<ButtonRelease-2>', echo_event)
 
 def start_panning(event):
     x, y = event.x, event.y
@@ -312,15 +248,14 @@ canvas.bind('<ButtonPress-3>', start_panning)
 canvas.bind('<B3-Motion>', motion_panning)
 
 
-initial_brush_size = 0
-brush_size_last_x = 0
-brush_size_last_y = 0
+last_x_cursor = 0
+last_y_cursor = 0
 
 def save_cursor_position(event):
-    global brush_size_last_x
-    global brush_size_last_y
-    brush_size_last_x = event.x
-    brush_size_last_y = event.y
+    global last_x_cursor
+    global last_y_cursor
+    last_x_cursor = event.x
+    last_y_cursor = event.y
 
 
 def restore_cursor_position(event):
@@ -328,39 +263,9 @@ def restore_cursor_position(event):
     canvas.event_generate(
             '<Motion>',
             warp=True,
-            x=brush_size_last_x,
-            y=brush_size_last_y)
+            x=last_x_cursor,
+            y=last_y_cursor)
 
-
-def on_alt_b3_press(event):
-    global initial_brush_size 
-    initial_brush_size = brush_size
-
-    save_cursor_position(event)
-
-
-def on_alt_b3_motion(event):
-    delta_x = (event.x - brush_size_last_x) / 4
-    #delta_y = (event.y - brush_size_last_y) / 4
-
-    set_brush_size(initial_brush_size + delta_x)
-
-    event.x = brush_size_last_x
-    event.y = brush_size_last_y
-
-    #update_brush_cursor(event)
-    return 'break'
-
-
-
-def on_alt_b3_release(event):
-    print(f'{brush_size=}')
-    restore_cursor_position(event)
-
-
-#canvas.bind('<Alt-ButtonPress-3>', on_alt_b3_press, add='+')
-#canvas.bind('<Alt-B3-Motion>', on_alt_b3_motion, add='+')
-#canvas.bind('<Alt-B3-ButtonRelease>', on_alt_b3_release, add='+')
 
 root.bind('<Alt_L>', lambda x: "break") # ignore key press
 
@@ -382,7 +287,7 @@ def start_zooming(event):
 
 
 def motion_zooming(event):
-    delta_x = (event.x - brush_size_last_x) // 4
+    delta_x = (event.x - last_x_cursor) // 4
     #print(f'{delta_x=}')
 
     delta_steps = delta_x // 20
@@ -391,8 +296,8 @@ def motion_zooming(event):
     target_level = initial_zoom + delta_steps
     #print(f'{target_level=} = {initial_zoom=} + {delta_steps=}')
 
-    x = canvas.canvasx(brush_size_last_x)
-    y = canvas.canvasy(brush_size_last_y)
+    x = canvas.canvasx(last_x_cursor)
+    y = canvas.canvasy(last_y_cursor)
 
 
     if target_level > zoom_level:
@@ -406,52 +311,6 @@ def motion_zooming(event):
     return 'break'
 
 
-
-
-def apply_change(action, change_type):
-    match action:
-        case 'clear_layer', layer_name, object_ids:
-            new_state = 'normal' if change_type == 'undo' else 'hidden'
-            #print(f'{change_type=} clear layer {layer_name=} {object_ids}')
-
-        case 'toggle_layer_visible', layer_name:
-            toggle_layer_visible(layer_name)
-            object_ids = ()
-
-        case _, object_ids:
-            new_state = 'hidden' if change_type == 'undo' else 'normal'
-            pass
-
-    for object_id in object_ids:
-        #print(f'apply {object_id=} {new_state=}')
-        if new_state == 'hidden':
-            canvas.addtag_withtag('deleted', object_id)
-        else:
-            canvas.dtag(object_id, 'deleted')
-        canvas.itemconfig(object_id, state=new_state)
-
-
-def start_undoing(event):
-    if not undo_stack:
-        print('nothing to undo')
-        return
-
-    action = undo_stack.pop()
-    apply_change(action, 'undo')
-    redo_stack.append(action)
-
-
-def start_redoing(event):
-    if not redo_stack:
-        print('nothing to redo')
-        return
-
-    action = redo_stack.pop()
-    apply_change(action, 'redo')
-    undo_stack.append(action)
-
-
-
 def zoom_to_level(target_level):
     def fn(event):
         x = canvas.canvasx(event.x)
@@ -461,7 +320,6 @@ def zoom_to_level(target_level):
         return
     return fn
 
-#select_brush_tool()
 
 def on_key_press(event):
     global current_line
@@ -705,9 +563,6 @@ flash_cursor()
 create_cell(100, 50)
 
 root.bind('<KeyPress-F1>', toggle_toolbox)
-
-#root.bind('<KeyPress-u>', start_undoing)
-#root.bind('<KeyPress-y>', start_redoing)
 
 canvas.bind('<MouseWheel>', on_windows_zoom)
 
