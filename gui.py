@@ -336,7 +336,6 @@ def zoom_to_level(target_level):
 def on_key_press(event):
     global current_line
     global current_col
-    global current_line_width
     #print(f'{event=} {current_line=} {current_col=}')
 
     if event.state == 0:
@@ -406,12 +405,14 @@ def on_key_press(event):
 current_lines = ['']
 current_line = 0
 current_col  = 0
-current_line_width = 0
+selection_line = 0
+selection_col  = 0
 
 
 cursor_colour = 'white'
 cursor_width = 1
 cursor_height = font_metrics["ascent"] + 2
+linespace = font_metrics['linespace']
 
 cursor_id = None
 
@@ -444,13 +445,45 @@ def create_cursor(x, y):
             x-(cursor_width//2),
             y,
             x+(cursor_width//2),
-            y+cursor_height,
+            y+linespace,
             fill=cursor_colour,
             outline='',
             tags='cursor')
 
 
+def create_selection():
+    global selection_id
+    selection_id = canvas.create_rectangle(
+            0, 0,
+            0, 0,
+            fill=cursor_colour,
+            outline='',
+            tags='selection',
+            state='hidden')
+
+
+def update_selection():
+    if current_line == selection_line and current_col == selection_col:
+        canvas.itemconfig(selection_id, state='hidden')
+    else:
+        canvas.itemconfig(selection_id, state='normal')
+
+    x1, y1 = line_col_to_xy(current_line, current_col)
+    x2, y2 = line_col_to_xy(selection_line, selection_col)
+    font_metrics = cell_font_spec.metrics()
+    linespace = font_metrics['linespace']
+    y2 += linespace
+    x, y = canvas.coords(current_cell)
+    x1 += x
+    x2 += x
+    y1 += y
+    y2 += y
+    #print((x1, y1, x2, y2))
+    canvas.coords(selection_id, x1, y1, x2, y2)
+
+
 def set_cursor(x=0, y=0):
+    canvas.itemconfig(selection_id, state='hidden')
     old_x, old_y, *_ = canvas.coords(cursor_id)
     delta_x = x - old_x
     delta_y = y - old_y
@@ -493,47 +526,53 @@ def click_cell(event, cell_id):
 
     text = canvas.itemcget(current_cell, 'text')
     current_lines = text.split('\n')
-    current_line = 0
-    current_col  = 0
 
-    #print(f'{current_cell=}')
+    current_line, current_col = xy_to_line_col(event.x, event.y)
+
+    update_text_cursor()
+    reset_cursor_flash()
+
+
+def xy_to_line_col(event_x, event_y):
+    line_number = 0
+    col_number  = 0
+
     item_x, item_y = canvas.coords(current_cell)
 
-    delta_x = canvas.canvasx(event.x) - item_x
-    delta_y = canvas.canvasy(event.y) - item_y
-    #print(f'{delta_y=:2.2f} = {event.y=} - {item_y=}')
-    #print(f'{delta_x=}, {delta_y=}')
-
-    #padding = int(max(2, 2 * zoom_scales[zoom_level]))
+    delta_x = canvas.canvasx(event_x) - item_x
+    delta_y = canvas.canvasy(event_y) - item_y
 
     font_metrics = cell_font_spec.metrics()
-    ##print(font_metrics)
     linespace = font_metrics['linespace']
-    current_line = min(len(current_lines)-1, max(0, int(delta_y / linespace)))
-    #print(f'{current_line=} = {delta_y:2.2f} / {linespace}')
-
-    #print(f'{current_lines=} {current_line=}')
-    line = current_lines[current_line]
-    #padding = int(max(2, 2 * zoom_scales[zoom_level]))
-    padding = 0
+    line_number = min(len(current_lines)-1, max(0, int(delta_y / linespace)))
+    line = current_lines[line_number]
 
     prev_x = 0
     for i in range(1, len(line)+1):
         line_subset = line[:i]
         #print(f'{i} {line[:i]}')
-        x_offset = cell_font_spec.measure(line_subset) + padding
+        x_offset = cell_font_spec.measure(line_subset)
         #print(f'{delta_x=} {x_offset=}')
         width = x_offset - prev_x
         if x_offset - (width // 2) > delta_x:
-            current_col = i - 1
+            col_number = i - 1
             break
         prev_x = x_offset
     else:
-        current_col = len(line)
+        col_number = len(line)
+    pass
+
+    return line_number, col_number
 
 
-    update_text_cursor()
-    reset_cursor_flash()
+def line_col_to_xy(line_number, col_number):
+    font_metrics = cell_font_spec.metrics()
+    linespace = font_metrics['linespace']
+    y = line_number * linespace
+    line = current_lines[line_number]
+    line_subset = line[:col_number]
+    x = cell_font_spec.measure(line_subset)
+    return x, y
 
 
 def click_near_cell(event):
@@ -561,7 +600,6 @@ def create_cell(x, y):
     global current_lines
     global current_line
     global current_col
-    global current_line_width
 
     y -= font_metrics['ascent'] // 2
 
@@ -580,8 +618,6 @@ def create_cell(x, y):
     current_line = 0
     current_col  = 0
 
-    current_line_width = 0
-
     canvas.tag_bind(current_cell, '<Button-1>', partial(click_cell, cell_id=current_cell))
 
 
@@ -591,7 +627,16 @@ def create_cell_here(event):
     create_cell(x, y)
 
 
+def on_button1_motion(event):
+    global selection_line
+    global selection_col
+    selection_line, selection_col = xy_to_line_col(event.x, event.y)
+    update_selection()
+    reset_cursor_flash()
+
+
 create_cursor(100, 50)
+create_selection()
 flash_cursor()
 create_cell(100, 50)
 
@@ -600,10 +645,8 @@ root.bind('<KeyPress-F1>', toggle_toolbox)
 canvas.bind('<MouseWheel>', on_windows_zoom)
 
 canvas.bind('<Button-1>', click_near_cell)
-canvas.bind('<Double-Button-1>', create_cell_here)
-#canvas.bind('<Button-1>', lambda e: print(e))
-#canvas.bind('<Button-2>', lambda e: print(e))
-#canvas.bind('<Button-3>', lambda e: print(e))
+#canvas.bind('<Double-Button-1>', create_cell_here)
+canvas.bind('<B1-Motion>', on_button1_motion)
 
 root.bind('<KeyPress>', on_key_press)
 
