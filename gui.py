@@ -607,6 +607,12 @@ canvas.bind('<Double-Button-1>', create_cell_here)
 
 root.bind('<KeyPress>', on_key_press)
 
+root.bind('<Escape>', lambda e: print('centre'))
+root.bind('<Control-a>', lambda e: print('select all'))
+root.bind('<Control-x>', lambda e: print('cut'))
+root.bind('<Control-c>', lambda e: print('copy'))
+root.bind('<Control-v>', lambda e: print('paste'))
+
 #root.wm_state('zoomed')
 root.mainloop()
 
