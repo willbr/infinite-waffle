@@ -410,7 +410,7 @@ current_line_width = 0
 
 
 cursor_colour = 'white'
-cursor_width = 2
+cursor_width = 1
 cursor_height = font_metrics["ascent"] + 2
 
 cursor_id = None
@@ -421,6 +421,7 @@ def update_text_cursor():
     line_subset = line[:current_col]
 
     padding = int(max(2, 2 * zoom_scales[zoom_level]))
+    padding = 0
     x_offset = cell_font_spec.measure(line_subset) + padding
     font_metrics = cell_font_spec.metrics()
     #print(font_metrics)
@@ -433,7 +434,8 @@ def update_text_cursor():
 
     set_cursor(x, y)
 
-    canvas.tag_raise(cursor_id)
+    #canvas.tag_raise(cursor_id)
+    canvas.tag_lower(cursor_id)
 
 
 def create_cursor(x, y):
@@ -444,6 +446,7 @@ def create_cursor(x, y):
             x+(cursor_width//2),
             y+cursor_height,
             fill=cursor_colour,
+            outline='',
             tags='cursor')
 
 
@@ -511,16 +514,20 @@ def click_cell(event, cell_id):
 
     #print(f'{current_lines=} {current_line=}')
     line = current_lines[current_line]
-    padding = int(max(2, 2 * zoom_scales[zoom_level]))
+    #padding = int(max(2, 2 * zoom_scales[zoom_level]))
+    padding = 0
 
+    prev_x = 0
     for i in range(1, len(line)+1):
         line_subset = line[:i]
         #print(f'{i} {line[:i]}')
         x_offset = cell_font_spec.measure(line_subset) + padding
         #print(f'{delta_x=} {x_offset=}')
-        if x_offset > delta_x:
+        width = x_offset - prev_x
+        if x_offset - (width // 2) > delta_x:
             current_col = i - 1
             break
+        prev_x = x_offset
     else:
         current_col = len(line)
 
