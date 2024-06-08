@@ -39,6 +39,18 @@ colours = {
     'Purple': '#A349A4',
 }
 
+SHIFT_MASK = 0x0001
+CAPS_LOCK_MASK = 0x0002
+CONTROL_MASK = 0x0004
+ALT_MASK = 0x0008
+NUM_LOCK_MASK = 0x0010
+LEFT_ALT_MASK = 0x0020
+LEFT_MOUSE_BUTTON_MASK = 0x0040
+MIDDLE_MOUSE_BUTTON_MASK = 0x0080
+RIGHT_MOUSE_BUTTON_MASK = 0x0100
+COMMAND_MASK = 0x0200
+ALT_GR_MASK = 0x0800
+MOVEMENT_MASK = 0x40000
 
 
 frame = Frame(root)
@@ -326,6 +338,17 @@ def on_key_press(event):
     global current_col
     global current_line_width
     #print(f'{event=} {current_line=} {current_col=}')
+
+    if event.state == 0:
+        pass
+    elif event.state & SHIFT_MASK:
+        pass
+    elif event.state & MOVEMENT_MASK:
+        pass
+    else:
+        print(f'breaking on unbound state {event=}')
+        return 'break'
+
 
     char = event.char
     keysym = event.keysym
