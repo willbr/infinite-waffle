@@ -124,8 +124,8 @@ def on_canvas_resize(event=None):
     if bbox is None:
         x1 = -window_width
         y1 = -window_height
-        x2 = window_width * 2
-        y2 = window_height * 2
+        x2 = window_width * 1
+        y2 = window_height * 1
     else:
         #print(bbox)
         x1 = bbox[0] - bbox[2] - window_width
@@ -336,7 +336,7 @@ def zoom_to_level(target_level):
 def on_key_press(event):
     global current_line
     global current_col
-    #print(f'{event=} {current_line=} {current_col=}')
+    print(f'{event=} {current_line=} {current_col=}')
 
     if event.state == 0:
         pass
@@ -345,46 +345,14 @@ def on_key_press(event):
     elif event.state & MOVEMENT_MASK:
         pass
     else:
-        print(f'breaking on unbound state {event=}')
+        print(f'breaking on {event.state=:02x} unbound state {event=}')
         return 'break'
 
 
     char = event.char
     keysym = event.keysym
 
-    if keysym == 'BackSpace':
-        line = current_lines[current_line]
-        if current_col == 0:
-            print('delete line')
-        else:
-            line = current_lines[current_line]
-            lhs = line[:current_col-1] 
-            rhs = line[current_col:]
-            #print((line, lhs, rhs))
-            new_line = lhs + rhs
-            current_lines[current_line] = new_line
-            current_col = max(0, current_col - 1)
-    elif keysym == 'Delete':
-        pass
-    elif keysym == 'Up':
-        current_line = max(0, current_line - 1)
-    elif keysym == 'Down':
-        current_line = min(len(current_lines)-1, current_line + 1)
-    elif keysym == 'Left':
-        line = current_lines[current_line]
-        if current_col > len(line):
-            current_col = len(line)
-        current_col = max(0, current_col - 1)
-    elif keysym == 'Right':
-        line = current_lines[current_line]
-        current_col = min(len(line), current_col + 1)
-    elif keysym == 'Escape':
-        pass
-    elif char == '\r':
-        current_lines.insert(current_line+1, '')
-        current_line += 1
-        current_col = 0
-    elif char == '':
+    if char == '':
         pass
     else:
         current_col += 1
@@ -399,6 +367,68 @@ def on_key_press(event):
 
     update_text_cursor()
 
+    reset_cursor_flash()
+
+
+def on_return(event):
+    global current_line
+    global current_col
+
+    current_lines.insert(current_line+1, '')
+    current_line += 1
+    current_col = 0
+
+    text = '\n'.join(current_lines)
+    canvas.itemconfig(current_cell, text=text)
+    update_text_cursor()
+    reset_cursor_flash()
+
+
+def on_backspace(event):
+    global current_line
+    global current_col
+
+    line = current_lines[current_line]
+    if current_col == 0:
+        print('delete line')
+    else:
+        line = current_lines[current_line]
+        lhs = line[:current_col-1] 
+        rhs = line[current_col:]
+        #print((line, lhs, rhs))
+        new_line = lhs + rhs
+        current_lines[current_line] = new_line
+        current_col = max(0, current_col - 1)
+
+    text = '\n'.join(current_lines)
+    canvas.itemconfig(current_cell, text=text)
+    update_text_cursor()
+    reset_cursor_flash()
+
+
+def on_arrows(event):
+    global current_line
+    global current_col
+
+    match event.keysym:
+        case 'Up':
+            current_line = max(0, current_line - 1)
+        case 'Down':
+            current_line = min(len(current_lines)-1, current_line + 1)
+        case 'Left':
+            line = current_lines[current_line]
+            if current_col > len(line):
+                current_col = len(line)
+            current_col = max(0, current_col - 1)
+        case 'Right':
+            line = current_lines[current_line]
+            current_col = min(len(line), current_col + 1)
+        case other:
+            assert False
+
+    text = '\n'.join(current_lines)
+    canvas.itemconfig(current_cell, text=text)
+    update_text_cursor()
     reset_cursor_flash()
 
 
@@ -650,8 +680,20 @@ canvas.bind('<B1-Motion>', on_button1_motion)
 
 root.bind('<KeyPress>', on_key_press)
 
+root.bind('<Return>', on_return)
+
+root.bind('<BackSpace>', on_backspace)
+root.bind('<Delete>', lambda e: print('delete'))
+
+root.bind('<Up>',    on_arrows)
+root.bind('<Down>',  on_arrows)
+root.bind('<Left>',  on_arrows)
+root.bind('<Right>', on_arrows)
+
 root.bind('<Escape>', lambda e: print('centre'))
+
 root.bind('<Control-a>', lambda e: print('select all'))
+root.bind('<Mod1-a>', lambda e: print('select all'))
 root.bind('<Control-x>', lambda e: print('cut'))
 root.bind('<Control-c>', lambda e: print('copy'))
 root.bind('<Control-v>', lambda e: print('paste'))
