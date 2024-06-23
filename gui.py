@@ -710,6 +710,7 @@ def line_to_rect(line_number):
 def click_near_cell(event):
     #print(f'near {event=}')
     ignore_list = set(canvas.find_withtag("cursor"))
+    ignore_list |= set(canvas.find_withtag("selection"))
     #print(f'{ignore_list=}')
     current = set(canvas.find_withtag("current")) - ignore_list
     #print(f'{current=}')
@@ -724,6 +725,7 @@ def click_near_cell(event):
         return
 
     nearest_item = next(iter(nearest_items))
+    #print(( nearest_item, canvas.type(nearest_item), canvas.itemconfig(nearest_item, 'tags'),))
     click_cell(event, cell_id=nearest_item)
 
 
