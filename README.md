@@ -18,3 +18,9 @@ A silly text editor, inspired by [OneNote](https://en.wikipedia.org/wiki/Microso
 - [ ] undo & redo
 - [ ] save & load
 - [ ] esc to recenter on current cell
+
+
+- [ ] auto complete
+    - [ ] code complete
+    - [ ] parameter info
+    - [ ] members list
