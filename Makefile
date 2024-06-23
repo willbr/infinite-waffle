@@ -1,11 +1,13 @@
 UNAME := $(shell uname)
 
-ifeq ($(UNAME), Darwin)
-    PYTHON = python3
+ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
+	PYTHON := python
 else
-    ifeq ($(UNAME), Linux)
-        PYTHON = python3
-    endif
+	ifeq ($(UNAME), Darwin)
+		PYTHON := python3
+	else
+		PYTHON := python
+	endif
 endif
 
 run:
