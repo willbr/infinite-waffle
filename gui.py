@@ -89,8 +89,6 @@ vscrollbar.config(command=canvas.yview)
 current_tool = None
 current_cell = None
 
-selection_ids = []
-
 layer = {
         'outline': {'visible': True},
         'colour': {'visible': True},
@@ -334,6 +332,31 @@ def zoom_to_level(target_level):
     return fn
 
 
+def delete_range(from_line, from_col, to_line, to_col):
+    global current_lines
+    global current_line
+    global current_col
+
+    if to_line < from_line:
+        from_line, from_col, to_line, to_col = to_line, to_col, from_line, from_col
+
+    top_text = current_lines[from_line]
+    bottom_text = current_lines[to_line]
+
+    if from_line == to_line:
+        from_col, to_col = sorted((from_col, to_col))
+        new_text = top_text[:from_col] + top_text[to_col:]
+        current_lines[current_line] = new_text
+    else:
+        new_text = top_text[:from_col] + bottom_text[to_col:]
+        current_lines[current_line] = new_text
+
+        current_lines = current_lines[:from_line+1] + current_lines[to_line+1:]
+
+    current_line = from_line
+    current_col  = from_col
+
+
 def on_key_press(event):
     global current_line
     global current_col
@@ -353,22 +376,31 @@ def on_key_press(event):
     char = event.char
     keysym = event.keysym
 
+
     if char == '':
         pass
     else:
-        current_col += 1
-        #current_lines[current_line] += char
+        if selection_ids:
+            delete_range(
+                    current_line, current_col,
+                    selection_line, selection_col)
+
         line = current_lines[current_line]
-        new_line = line[:current_col-1] + char + line[current_col-1:]
+        new_line = line[:current_col] + char + line[current_col:]
         current_lines[current_line] = new_line
+        current_col += 1
 
-    text = '\n'.join(current_lines)
 
-    canvas.itemconfig(current_cell, text=text)
-
+    render_text()
     update_text_cursor()
 
     reset_cursor_flash()
+
+
+def render_text():
+    text = '\n'.join(current_lines)
+    #print(repr(text))
+    canvas.itemconfig(current_cell, text=text)
 
 
 def on_return(event):
@@ -437,7 +469,7 @@ current_lines = ['']
 current_line = 0
 current_col  = 0
 
-selection_lines = []
+selection_ids = []
 selection_line = 0
 selection_col  = 0
 
@@ -486,28 +518,29 @@ def create_cursor(x, y):
 
 
 
-def selection_state(new_state):
+def cancel_selection():
+    global selection_ids
     for rect_id in selection_ids:
-        canvas.itemconfig(rect_id, state=new_state)
+        canvas.delete(rect_id)
+    selection_ids = []
 
 
 def update_selection():
-    global selection_lines
-
     if current_line == selection_line and current_col == selection_col:
-        selection_state('hidden')
+        cancel_selection()
         return
 
-    selection_state('normal')
+    if current_line < selection_line:
+        from_line, from_col = current_line, current_col
+        to_line, to_col = selection_line, selection_col
+    else:
+        from_line, from_col = selection_line, selection_col
+        to_line, to_col = current_line, current_col
 
-    x1, y1 = line_col_to_xy(current_line, current_col)
-    x2, y2 = line_col_to_xy(selection_line, selection_col)
+    x1, y1 = line_col_to_xy(from_line, from_col)
+    x2, y2 = line_col_to_xy(to_line, to_col)
     font_metrics = cell_font_spec.metrics()
     linespace = font_metrics['linespace']
-
-    #print((current_line, selection_line, current_col, selection_col))
-
-    from_line, to_line = (current_line, selection_line) if current_line < selection_line else (selection_line, current_line)
 
     selection_lines = list(range(from_line, to_line+1))
     #print(selection_lines)
@@ -534,15 +567,10 @@ def update_selection():
     x, y = canvas.coords(current_cell)
 
     new_rects = []
-    if current_line == selection_line:
+    if from_line == to_line:
         new_rects.append((
                       x+x1, y+y1,
                       x+x2, y+y1+linespace))
-    elif current_line > selection_line:
-        _,_,line_width,_ = line_to_rect(head)
-        new_rects.append((
-                      x, y+y1,
-                      x+x1, y+y1+linespace))
     else:
         _,_,line_width,_ = line_to_rect(head)
         new_rects.append((
@@ -550,16 +578,10 @@ def update_selection():
                       x+line_width, y+y1+linespace))
 
     if tail is not None:
-        if current_line > selection_line:
-            _,_,line_width,_ = line_to_rect(tail)
-            new_rects.append((
-                          x+x2, y+y2-linespace,
-                          x+line_width, y+y2))
-        else:
-            _,_,line_width,_ = line_to_rect(tail)
-            new_rects.append((
-                          x, y+y2-linespace,
-                          x+x2, y+y2))
+        _,_,line_width,_ = line_to_rect(tail)
+        new_rects.append((
+                      x, y+y2-linespace,
+                      x+x2, y+y2))
 
     if body is not None:
         for line_index in body:
@@ -605,7 +627,8 @@ def update_selection_rects(new_rects):
 
 
 def set_cursor(x=0, y=0):
-    selection_state('hidden')
+    cancel_selection()
+
     old_x, old_y, *_ = canvas.coords(cursor_id)
     delta_x = x - old_x
     delta_y = y - old_y
@@ -778,6 +801,7 @@ root.bind('<KeyPress-F1>', toggle_toolbox)
 canvas.bind('<MouseWheel>', on_windows_zoom)
 
 canvas.bind('<Button-1>', click_near_cell)
+canvas.bind('<Double-Button-1>', lambda x: print('select word'))
 #canvas.bind('<Double-Button-1>', create_cell_here)
 canvas.bind('<B1-Motion>', on_button1_motion)
 
@@ -801,16 +825,17 @@ root.bind('<Control-x>', lambda e: print('cut'))
 root.bind('<Control-c>', lambda e: print('copy'))
 root.bind('<Control-v>', lambda e: print('paste'))
 
+root.bind('<Control-z>', lambda e: print('undo'))
+root.bind('<Control-y>', lambda e: print('redo'))
+
 """
 """
 def type_example_text():
-    text = """
-the quick brown fox
-the quick brown fox jumped over the lazy dog
-the quick brown fox
-the quick brown fox jumped over the lazy dog
-the quick brown fox jumped over the lazy dog
-"""
+    text = """1
+2 3
+4 5 6
+7 8 9 10
+11 12 13 14 15"""
     for char in text:
         #print(repr(char))
         match char:
