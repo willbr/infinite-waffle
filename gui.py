@@ -89,6 +89,7 @@ vscrollbar.config(command=canvas.yview)
 current_tool = None
 current_cell = None
 
+selection_ids = []
 
 layer = {
         'outline': {'visible': True},
@@ -336,7 +337,7 @@ def zoom_to_level(target_level):
 def on_key_press(event):
     global current_line
     global current_col
-    print(f'{event=} {current_line=} {current_col=}')
+    #print(f'{event=} {current_line=} {current_col=}')
 
     if event.state == 0:
         pass
@@ -435,6 +436,8 @@ def on_arrows(event):
 current_lines = ['']
 current_line = 0
 current_col  = 0
+
+selection_lines = []
 selection_line = 0
 selection_col  = 0
 
@@ -481,39 +484,128 @@ def create_cursor(x, y):
             tags='cursor')
 
 
-def create_selection():
-    global selection_id
-    selection_id = canvas.create_rectangle(
-            0, 0,
-            0, 0,
-            fill=cursor_colour,
-            outline='',
-            tags='selection',
-            state='hidden')
+
+
+def selection_state(new_state):
+    for rect_id in selection_ids:
+        canvas.itemconfig(rect_id, state=new_state)
 
 
 def update_selection():
+    global selection_lines
+
     if current_line == selection_line and current_col == selection_col:
-        canvas.itemconfig(selection_id, state='hidden')
-    else:
-        canvas.itemconfig(selection_id, state='normal')
+        selection_state('hidden')
+        return
+
+    selection_state('normal')
 
     x1, y1 = line_col_to_xy(current_line, current_col)
     x2, y2 = line_col_to_xy(selection_line, selection_col)
     font_metrics = cell_font_spec.metrics()
     linespace = font_metrics['linespace']
+
+    #print((current_line, selection_line, current_col, selection_col))
+
+    from_line, to_line = (current_line, selection_line) if current_line < selection_line else (selection_line, current_line)
+
+    selection_lines = list(range(from_line, to_line+1))
+    #print(selection_lines)
+
+    match len(selection_lines):
+        case 0:
+            head = None
+        case 1:
+            head = selection_lines[0]
+            body = None
+            tail = None
+        case 2:
+            head, tail = selection_lines
+            body = None
+        case other:
+            head, *body, tail = selection_lines
+
+    #print((head, body, tail))
+
+    if head is None:
+        return
+
     y2 += linespace
     x, y = canvas.coords(current_cell)
-    x1 += x
-    x2 += x
-    y1 += y
-    y2 += y
-    #print((x1, y1, x2, y2))
-    canvas.coords(selection_id, x1, y1, x2, y2)
+
+    new_rects = []
+    if current_line == selection_line:
+        new_rects.append((
+                      x+x1, y+y1,
+                      x+x2, y+y1+linespace))
+    elif current_line > selection_line:
+        _,_,line_width,_ = line_to_rect(head)
+        new_rects.append((
+                      x, y+y1,
+                      x+x1, y+y1+linespace))
+    else:
+        _,_,line_width,_ = line_to_rect(head)
+        new_rects.append((
+                      x+x1, y+y1,
+                      x+line_width, y+y1+linespace))
+
+    if tail is not None:
+        if current_line > selection_line:
+            _,_,line_width,_ = line_to_rect(tail)
+            new_rects.append((
+                          x+x2, y+y2-linespace,
+                          x+line_width, y+y2))
+        else:
+            _,_,line_width,_ = line_to_rect(tail)
+            new_rects.append((
+                          x, y+y2-linespace,
+                          x+x2, y+y2))
+
+    if body is not None:
+        for line_index in body:
+            x3, y3, x4, y4 = line_to_rect(line_index)
+            new_rects.append((
+                x+x3, y+y3,
+                x+x4, y+y4))
+
+    update_selection_rects(new_rects)
+
+
+def update_selection_rects(new_rects):
+    global selection_ids
+    num_rects = len(new_rects)
+    num_old   = len(selection_ids)
+    diff = num_rects - num_old
+    if num_rects == num_old:
+        pass
+    elif diff > 0:
+        for i in range(diff):
+            new_id = canvas.create_rectangle(
+                    0, 0,
+                    0, 0,
+                    #fill=cursor_colour,
+                    fill=cursor_colour,
+                    outline='',
+                    tags='selection',
+                    state='hidden')
+
+            selection_ids.append(new_id)
+        pass
+    else:
+        old_ids = selection_ids[diff:]
+        selection_ids = selection_ids[:num_rects]
+        for rect_id in old_ids:
+            canvas.delete(rect_id)
+
+    for ix, rect_id in enumerate(selection_ids):
+        #print(ix, rect_id)
+        canvas.coords(rect_id, *new_rects[ix])
+        canvas.itemconfig(rect_id, state='normal')
+        canvas.tag_lower(rect_id)
 
 
 def set_cursor(x=0, y=0):
-    canvas.itemconfig(selection_id, state='hidden')
+    selection_state('hidden')
     old_x, old_y, *_ = canvas.coords(cursor_id)
     delta_x = x - old_x
     delta_y = y - old_y
@@ -605,6 +697,16 @@ def line_col_to_xy(line_number, col_number):
     return x, y
 
 
+def line_to_rect(line_number):
+    font_metrics = cell_font_spec.metrics()
+    linespace = font_metrics['linespace']
+    line = current_lines[line_number]
+    width = cell_font_spec.measure(line)
+    y1 = line_number * linespace
+    y2 = y1 + linespace
+    return 0, y1, width, y2
+
+
 def click_near_cell(event):
     #print(f'near {event=}')
     ignore_list = set(canvas.find_withtag("cursor"))
@@ -666,7 +768,6 @@ def on_button1_motion(event):
 
 
 create_cursor(100, 50)
-create_selection()
 flash_cursor()
 create_cell(100, 50)
 
@@ -698,6 +799,28 @@ root.bind('<Control-x>', lambda e: print('cut'))
 root.bind('<Control-c>', lambda e: print('copy'))
 root.bind('<Control-v>', lambda e: print('paste'))
 
+"""
+"""
+def type_example_text():
+    text = """
+the quick brown fox
+the quick brown fox jumped over the lazy dog
+the quick brown fox
+the quick brown fox jumped over the lazy dog
+the quick brown fox jumped over the lazy dog
+"""
+    for char in text:
+        #print(repr(char))
+        match char:
+            case ' ':
+                cmd = '<KeyPress-space>'
+            case '\n':
+                cmd = '<KeyPress-Return>'
+            case other:
+                cmd = f'<KeyPress-{char}>'
+        canvas.event_generate(cmd)
+
+root.after(100, type_example_text)
 #root.wm_state('zoomed')
 root.mainloop()
 
