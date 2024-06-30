@@ -717,7 +717,7 @@ def click_cell(event, cell_id):
     reset_cursor_flash()
 
 
-def xy_to_line_col(event_x, event_y):
+def xy_to_line_col(event_x, event_y, align_cursor=True):
     line_number = 0
     col_number  = 0
 
@@ -738,7 +738,10 @@ def xy_to_line_col(event_x, event_y):
         x_offset = cell_font_spec.measure(line_subset)
         #print(f'{delta_x=} {x_offset=}')
         width = x_offset - prev_x
-        if x_offset - (width // 2) > delta_x:
+        if align_cursor and x_offset - (width // 2) > delta_x:
+            col_number = i - 1
+            break
+        elif x_offset > delta_x:
             col_number = i - 1
             break
         prev_x = x_offset
@@ -796,60 +799,66 @@ def select_word_at_mouse_cursor(event):
     global selection_line
     global selection_col
 
+    #print('\n\n\n\n\n\n\nselect word')
+
     break_chars = ' (),.'
-    print('\n\n\n\n\n\n\nselect word')
-    print(f'{current_line=}, {current_col=}')
+    _, current_col = xy_to_line_col(event.x, event.y, align_cursor=False)
+
+    #print(f'{current_line=}, {current_col=}')
+
 
     line = current_lines[current_line]
-    print(f'{line=}')
+    #print(f'{line=}')
 
     current_col = min(current_col, len(line)-1)
     c = line[current_col]
-    print(line)
-    print(current_col * ' ' + c)
+    #print(line)
+    #print(current_col * ' ' + c)
 
     if c in break_chars:
-        print('TODO check if cursor over a character')
         return
 
 
     lhs = line[:current_col]
     rhs = line[current_col:]
-    print(f'{lhs=}')
-    print(f'{rhs=}')
+    #print(f'{lhs=}')
+    #print(f'{rhs=}')
 
     lhs_offset = current_col
     rhs_offset = current_col
-    print(f'{lhs_offset=}')
-    print(f'{rhs_offset=}')
+    #print(f'{lhs_offset=}')
+    #print(f'{rhs_offset=}')
 
-    print('left')
+    #print('left')
     for i in range(lhs_offset-1, -1, -1):
-        print(i)
-        print((i, line[i]))
+        #print(i)
+        #print((i, line[i]))
         if line[i] in break_chars:
             break
         lhs_offset = i
 
-    print('right')
+    #print('right')
     for i in range(rhs_offset, len(line)):
-        print((i, line[i]))
+        #print((i, line[i]))
         if line[i] in break_chars:
             break
         rhs_offset = i
 
 
-    print(f'{current_col=}')
-    print(f'{lhs_offset=}')
-    print(f'{rhs_offset=}')
+    #print(f'{current_col=}')
+    #print(f'{lhs_offset=}')
+    #print(f'{rhs_offset=}')
 
     selection_line = current_line
     selection_col = rhs_offset + 1
     current_col = lhs_offset
 
-    print(line[current_col:selection_col])
-    print(f'{current_line=}, {current_col=}')
-    print(f'{selection_line=}, {selection_col=}')
+    #print(line[current_col:selection_col])
+    #print(f'{current_line=}, {current_col=}')
+    #print(f'{selection_line=}, {selection_col=}')
+
+    update_text_cursor()
+    reset_cursor_flash()
 
     update_selection()
 
