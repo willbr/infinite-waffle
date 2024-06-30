@@ -357,10 +357,45 @@ def delete_range(from_line, from_col, to_line, to_col):
     current_col  = from_col
 
 
+def selection_text():
+    from_line, from_col, to_line, to_col = current_line, current_col, selection_line, selection_col
+    #from_line, from_col, to_line, to_col = 0,4, 1,5
+
+    if to_line < from_line:
+        from_line, from_col, to_line, to_col = to_line, to_col, from_line, from_col
+
+    #print(current_lines)
+    range_lines = current_lines[from_line:to_line+1]
+    #print(range_lines)
+
+    top_text    = range_lines[0]
+    bottom_text = range_lines[-1]
+
+    if from_line == to_line:
+        #print(top_text)
+        top_text = top_text[from_col:to_col]
+        #print(top_text)
+        range_lines[0] = top_text
+    else:
+        #print(top_text)
+        top_text = top_text[from_col:]
+        #print(top_text)
+        range_lines[0] = top_text
+
+        #print(bottom_text)
+        bottom_text = bottom_text[:to_col]
+        #print(bottom_text)
+        range_lines[-1] = bottom_text
+
+    text = '\n'.join(range_lines)
+
+    return text
+
+
 def on_key_press(event):
     global current_line
     global current_col
-    #print(f'{event=} {current_line=} {current_col=}')
+    print(f'{event=} {current_line=} {current_col=}')
 
     if event.state == 0:
         pass
@@ -378,18 +413,18 @@ def on_key_press(event):
 
 
     if char == '':
-        pass
-    else:
-        if selection_ids:
-            delete_range(
-                    current_line, current_col,
-                    selection_line, selection_col)
+        reset_cursor_flash()
+        return
 
-        line = current_lines[current_line]
-        new_line = line[:current_col] + char + line[current_col:]
-        current_lines[current_line] = new_line
-        current_col += 1
+    if selection_ids:
+        delete_range(
+                current_line, current_col,
+                selection_line, selection_col)
 
+    line = current_lines[current_line]
+    new_line = line[:current_col] + char + line[current_col:]
+    current_lines[current_line] = new_line
+    current_col += 1
 
     render_text()
     update_text_cursor()
@@ -526,6 +561,7 @@ def cancel_selection():
 
 
 def update_selection():
+    #print('update selection')
     if current_line == selection_line and current_col == selection_col:
         cancel_selection()
         return
@@ -591,6 +627,8 @@ def update_selection():
                 x+x4, y+y4))
 
     update_selection_rects(new_rects)
+    #print(repr(selection_text()))
+    #print(selection_text())
 
 
 def update_selection_rects(new_rects):
@@ -627,6 +665,7 @@ def update_selection_rects(new_rects):
 
 
 def set_cursor(x=0, y=0):
+    #print('set_cursor')
     cancel_selection()
 
     old_x, old_y, *_ = canvas.coords(cursor_id)
@@ -792,6 +831,22 @@ def on_button1_motion(event):
     reset_cursor_flash()
 
 
+def select_all(event):
+    global current_line, current_col
+    global selection_line, selection_col
+    current_line, current_col = 0, 0
+    selection_line = len(current_lines) - 1
+    last_line = current_lines[-1]
+    selection_col = len(last_line)
+    update_selection()
+
+
+def copy_selection(event):
+    new_text = selection_text()
+    root.clipboard_clear()
+    root.clipboard_append(new_text)
+
+
 create_cursor(100, 50)
 flash_cursor()
 create_cell(100, 50)
@@ -819,10 +874,10 @@ root.bind('<Right>', on_arrows)
 
 root.bind('<Escape>', lambda e: print('centre'))
 
-root.bind('<Control-a>', lambda e: print('select all'))
-root.bind('<Mod1-a>', lambda e: print('select all'))
+root.bind('<Control-a>', select_all)
+root.bind('<Mod1-a>', select_all)
 root.bind('<Control-x>', lambda e: print('cut'))
-root.bind('<Control-c>', lambda e: print('copy'))
+root.bind('<Control-c>', copy_selection)
 root.bind('<Control-v>', lambda e: print('paste'))
 
 root.bind('<Control-z>', lambda e: print('undo'))
@@ -831,7 +886,10 @@ root.bind('<Control-y>', lambda e: print('redo'))
 """
 """
 def type_example_text():
-    text = """1
+    text = """one two three four five
+six seven eight nine
+ten
+1
 2 3
 4 5 6
 7 8 9 10
