@@ -336,9 +336,13 @@ def delete_range(from_line, from_col, to_line, to_col):
     global current_lines
     global current_line
     global current_col
+    global selection_line
+    global selection_col
 
     if to_line < from_line:
         from_line, from_col, to_line, to_col = to_line, to_col, from_line, from_col
+
+    #print((from_line, from_col, to_line, to_col))
 
     top_text = current_lines[from_line]
     bottom_text = current_lines[to_line]
@@ -346,7 +350,9 @@ def delete_range(from_line, from_col, to_line, to_col):
     if from_line == to_line:
         from_col, to_col = sorted((from_col, to_col))
         new_text = top_text[:from_col] + top_text[to_col:]
+        #print(new_text)
         current_lines[current_line] = new_text
+        #print(current_lines)
     else:
         new_text = top_text[:from_col] + bottom_text[to_col:]
         current_lines[current_line] = new_text
@@ -355,6 +361,60 @@ def delete_range(from_line, from_col, to_line, to_col):
 
     current_line = from_line
     current_col  = from_col
+    selection_line = from_line
+    selection_col  = from_col
+
+
+def insert_text(dst_line, dst_col, new_text):
+    global current_line
+    global current_col
+    global selection_line
+    global selection_col
+    global current_lines
+
+    #print('\n\n\n\ninsert_text')
+
+    if new_text == '':
+        print('new text is empty')
+        return
+
+    new_text_lines = new_text.split('\n')
+    #print(f'insert text {new_lines=}')
+    #print(f'{current_lines=}')
+
+    line = current_lines[current_line]
+    lhs = line[:current_col]
+    rhs = line[current_col:]
+    #print(f'{lhs=} {rhs=}')
+
+    if len(new_text_lines) == 1:
+        #old_line = current_lines[current_line]
+
+        new_line = lhs + new_text + rhs
+        #print(new_line)
+
+        current_lines[current_line] = new_line
+        current_col = len(lhs) + len(new_text)
+        selection_line = current_line
+        selection_col  = current_col
+        return
+
+    lines_before = current_lines[:current_line]
+    lines_after = current_lines[current_line+1:]
+
+    a, *b, c = new_text_lines
+
+    #print(lines_before)
+    #print(f'{lhs + a=}')
+    #print(b)
+    #print(f'{c + rhs=}')
+    #print(lines_after)
+
+    current_lines = lines_before + [lhs + a,] + b + [c + rhs,] + lines_after
+    current_line = len(current_lines) - len(lines_after) - 1
+    current_col  = len(c)
+    selection_line = current_line
+    selection_col  = current_col
 
 
 def selection_text():
@@ -929,10 +989,44 @@ def select_all(event):
     update_selection()
 
 
-def copy_selection(event):
+def delete_selection():
+    #print('delete_selection')
+    delete_range(
+            current_line, current_col,
+            selection_line, selection_col)
+
+
+def cut_selection(event):
+    #print('cut')
+    copy_selection()
+    delete_selection()
+
+    render_text()
+    update_text_cursor()
+
+    reset_cursor_flash()
+
+
+def copy_selection(event=None):
+    #print('copy')
     new_text = selection_text()
     root.clipboard_clear()
     root.clipboard_append(new_text)
+
+
+def paste_from_clipboard(event):
+    #print('paste')
+    new_text = root.clipboard_get()
+    #print(f'{new_text=}')
+
+    delete_selection()
+
+    insert_text(current_line, current_col, new_text)
+
+    render_text()
+    update_text_cursor()
+
+    reset_cursor_flash()
 
 
 create_cursor(100, 50)
@@ -963,25 +1057,19 @@ root.bind('<Right>', on_arrows)
 root.bind('<Escape>', lambda e: print('centre'))
 
 root.bind('<Control-a>', select_all)
-root.bind('<Mod1-a>', select_all)
-root.bind('<Control-x>', lambda e: print('cut'))
+root.bind('<Mod1-a>',    select_all)
+root.bind('<Control-x>', cut_selection)
 root.bind('<Control-c>', copy_selection)
-root.bind('<Control-v>', lambda e: print('paste'))
+root.bind('<Control-v>', paste_from_clipboard)
 
 root.bind('<Control-z>', lambda e: print('undo'))
 root.bind('<Control-y>', lambda e: print('redo'))
 
-"""
-"""
+
 def type_example_text():
     text = """one two three four five
 six seven eight nine
-ten
-1
-2 3
-4 5 6
-7 8 9 10
-11 12 13 14 15"""
+ten"""
     for char in text:
         #print(repr(char))
         match char:
