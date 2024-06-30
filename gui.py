@@ -356,18 +356,25 @@ def delete_range(from_line, from_col, to_line, to_col):
 
     top_text = current_lines[from_line]
     bottom_text = current_lines[to_line]
+    #print(top_text)
+    #print(bottom_text)
+
+    #print(current_lines)
 
     if from_line == to_line:
         from_col, to_col = sorted((from_col, to_col))
         new_text = top_text[:from_col] + top_text[to_col:]
         #print(new_text)
-        current_lines[current_line] = new_text
+        current_lines[from_line] = new_text
         #print(current_lines)
     else:
         new_text = top_text[:from_col] + bottom_text[to_col:]
-        current_lines[current_line] = new_text
+        #print(new_text)
+        current_lines[from_line] = new_text
 
         current_lines = current_lines[:from_line+1] + current_lines[to_line+1:]
+
+    #print(current_lines)
 
     select_range(from_line, from_col, from_line, from_col)
 
@@ -460,8 +467,6 @@ def selection_text():
 
 
 def on_key_press(event):
-    global current_line
-    global current_col
     #print(f'{event=} {current_line=} {current_col=}')
 
     if event.state == 0:
@@ -483,7 +488,7 @@ def on_key_press(event):
         reset_cursor_flash()
         return
 
-    if selection_ids:
+    if has_selection():
         delete_range(
                 current_line, current_col,
                 selection_line, selection_col)
@@ -503,15 +508,7 @@ def render_text():
 
 
 def on_return(event):
-    global current_line
-    global current_col
-
-    current_lines.insert(current_line+1, '')
-    current_line += 1
-    current_col = 0
-
-    text = '\n'.join(current_lines)
-    canvas.itemconfig(current_cell, text=text)
+    insert_text(current_line, current_col, '\n')
     update_text_cursor()
     reset_cursor_flash()
 
@@ -586,8 +583,9 @@ def on_arrows(event):
             case other:
                 assert False
 
-    #text = '\n'.join(current_lines)
-    #canvas.itemconfig(current_cell, text=text)
+        selection_line = current_line
+        selection_col  = current_col 
+
     update_text_cursor()
     reset_cursor_flash()
 
@@ -784,8 +782,6 @@ def reset_cursor_flash():
 def click_cell(event, cell_id):
     global current_cell
     global current_lines
-    global current_line
-    global current_col
 
     #print(f'click_cell {event=} {cell_id=}')
 
@@ -799,7 +795,8 @@ def click_cell(event, cell_id):
     text = canvas.itemcget(current_cell, 'text')
     current_lines = text.split('\n')
 
-    current_line, current_col = xy_to_line_col(event.x, event.y)
+    l, c = xy_to_line_col(event.x, event.y)
+    select_range(l, c, l, c)
 
     update_text_cursor()
     reset_cursor_flash()
