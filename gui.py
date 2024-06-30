@@ -748,19 +748,20 @@ def xy_to_line_col(event_x, event_y, align_cursor=True):
     for i in range(1, len(line)+1):
         line_subset = line[:i]
         #print(f'{i} {line[:i]}')
+
         x_offset = cell_font_spec.measure(line_subset)
-        #print(f'{delta_x=} {x_offset=}')
         width = x_offset - prev_x
-        if align_cursor and x_offset - (width // 2) > delta_x:
-            col_number = i - 1
-            break
-        elif x_offset > delta_x:
-            col_number = i - 1
-            break
         prev_x = x_offset
+
+        if align_cursor:
+            x_offset -= (width // 2)
+        #print(f'{delta_x=:.0f} {x_offset=} {width=}')
+
+        if x_offset > delta_x:
+            col_number = i - 1
+            break
     else:
         col_number = len(line)
-    pass
 
     return line_number, col_number
 
