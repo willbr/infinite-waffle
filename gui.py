@@ -478,24 +478,37 @@ def on_arrows(event):
     global current_line
     global current_col
 
-    match event.keysym:
-        case 'Up':
-            current_line = max(0, current_line - 1)
-        case 'Down':
-            current_line = min(len(current_lines)-1, current_line + 1)
-        case 'Left':
-            line = current_lines[current_line]
-            if current_col > len(line):
-                current_col = len(line)
-            current_col = max(0, current_col - 1)
-        case 'Right':
-            line = current_lines[current_line]
-            current_col = min(len(line), current_col + 1)
-        case other:
-            assert False
+    has_selection = current_line != selection_line or current_col != selection_col
 
-    text = '\n'.join(current_lines)
-    canvas.itemconfig(current_cell, text=text)
+    if has_selection:
+        match event.keysym:
+            case 'Left' | 'Up':
+                pass
+            case 'Right' | 'Down':
+                current_line = selection_line
+                current_col = selection_col
+            case other:
+                assert False
+
+    else:
+        match event.keysym:
+            case 'Up':
+                current_line = max(0, current_line - 1)
+            case 'Down':
+                current_line = min(len(current_lines)-1, current_line + 1)
+            case 'Left':
+                line = current_lines[current_line]
+                if current_col > len(line):
+                    current_col = len(line)
+                current_col = max(0, current_col - 1)
+            case 'Right':
+                line = current_lines[current_line]
+                current_col = min(len(line), current_col + 1)
+            case other:
+                assert False
+
+    #text = '\n'.join(current_lines)
+    #canvas.itemconfig(current_cell, text=text)
     update_text_cursor()
     reset_cursor_flash()
 
