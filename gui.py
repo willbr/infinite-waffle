@@ -9,8 +9,8 @@ root.geometry('800x600')
 root.title('Infinite Waffle')
 
 background_colour = '#222'
-selected_cell_colour = 'green'
-unselected_cell_colour = 'cyan'
+selection_colour = '#08e'
+text_colour = '#eee'
 
 toolbox_font_spec = tkfont.Font(family="Georgia", size=20)
 
@@ -735,8 +735,7 @@ def update_selection_rects(new_rects):
             new_id = canvas.create_rectangle(
                     0, 0,
                     0, 0,
-                    #fill=cursor_colour,
-                    fill=cursor_colour,
+                    fill=selection_colour,
                     outline='',
                     tags='selection',
                     state='hidden')
@@ -795,10 +794,7 @@ def click_cell(event, cell_id):
         pass
         #return
 
-    canvas.itemconfig(current_cell, fill=unselected_cell_colour)
-
     current_cell = cell_id
-    canvas.itemconfig(current_cell, fill=selected_cell_colour)
 
     text = canvas.itemcget(current_cell, 'text')
     current_lines = text.split('\n')
@@ -968,13 +964,11 @@ def create_cell(x, y):
 
     set_cursor_xy(x, y)
 
-    canvas.itemconfig(current_cell, fill=unselected_cell_colour)
-
     current_cell = canvas.create_text(
             x, y,
             text='',
             font=cell_font_spec,
-            fill=colours['Cyan'],
+            fill=text_colour,
             anchor='nw')
 
     current_lines = ['']
