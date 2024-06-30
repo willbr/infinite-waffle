@@ -332,12 +332,22 @@ def zoom_to_level(target_level):
     return fn
 
 
-def delete_range(from_line, from_col, to_line, to_col):
-    global current_lines
+def select_range(from_line, from_col, to_line, to_col):
     global current_line
     global current_col
     global selection_line
     global selection_col
+
+    current_line = from_line
+    current_col  = max(0, from_col)
+    selection_line = to_line
+    selection_col  = max(0, to_col)
+
+
+def delete_range(from_line, from_col, to_line, to_col):
+    global current_lines
+
+    #print((from_line, from_col, to_line, to_col))
 
     if to_line < from_line:
         from_line, from_col, to_line, to_col = to_line, to_col, from_line, from_col
@@ -359,10 +369,7 @@ def delete_range(from_line, from_col, to_line, to_col):
 
         current_lines = current_lines[:from_line+1] + current_lines[to_line+1:]
 
-    current_line = from_line
-    current_col  = from_col
-    selection_line = from_line
-    selection_col  = from_col
+    select_range(from_line, from_col, from_line, from_col)
 
 
 def insert_text(dst_line, dst_col, new_text):
@@ -481,10 +488,7 @@ def on_key_press(event):
                 current_line, current_col,
                 selection_line, selection_col)
 
-    line = current_lines[current_line]
-    new_line = line[:current_col] + char + line[current_col:]
-    current_lines[current_line] = new_line
-    current_col += 1
+    insert_text(current_line, current_col, char)
 
     render_text()
     update_text_cursor()
@@ -512,35 +516,50 @@ def on_return(event):
     reset_cursor_flash()
 
 
-def on_backspace(event):
+def expand_left(n, unit):
     global current_line
     global current_col
 
-    line = current_lines[current_line]
-    if current_col == 0:
-        print('delete line')
-    else:
-        line = current_lines[current_line]
-        lhs = line[:current_col-1] 
-        rhs = line[current_col:]
-        #print((line, lhs, rhs))
-        new_line = lhs + rhs
-        current_lines[current_line] = new_line
-        current_col = max(0, current_col - 1)
+    assert unit == 'char'
 
-    text = '\n'.join(current_lines)
-    canvas.itemconfig(current_cell, text=text)
+    current_col -= n
+    while current_col < 0:
+        if current_line == 0:
+            break
+
+        current_line -= 1
+        current_col += 1
+
+        line = current_lines[current_line]
+        current_col += len(line)
+
+
+def on_backspace(event):
+    if has_selection():
+        #print('has_selection')
+        delete_selection()
+    else:
+        #print((current_line, current_col))
+        expand_left(1, 'char')
+        delete_selection()
+
+    render_text()
     update_text_cursor()
     reset_cursor_flash()
+
+
+def has_selection():
+    #print(f'{current_line=}, {selection_line=}')
+    #print(f'{current_col=}, {selection_col=}')
+    r = current_line != selection_line or current_col != selection_col
+    return r
 
 
 def on_arrows(event):
     global current_line
     global current_col
 
-    has_selection = current_line != selection_line or current_col != selection_col
-
-    if has_selection:
+    if has_selection():
         match event.keysym:
             case 'Left' | 'Up':
                 pass
@@ -606,7 +625,7 @@ def update_text_cursor():
     y = cell_y + y_offset
     x = cell_x + x_offset
 
-    set_cursor(x, y)
+    set_cursor_xy(x, y)
 
     #canvas.tag_raise(cursor_id)
     canvas.tag_lower(cursor_id)
@@ -737,8 +756,8 @@ def update_selection_rects(new_rects):
         canvas.tag_lower(rect_id)
 
 
-def set_cursor(x=0, y=0):
-    #print('set_cursor')
+def set_cursor_xy(x=0, y=0):
+    #print('set_cursor_xy')
     cancel_selection()
 
     old_x, old_y, *_ = canvas.coords(cursor_id)
@@ -947,7 +966,7 @@ def create_cell(x, y):
 
     y -= font_metrics['ascent'] // 2
 
-    set_cursor(x, y)
+    set_cursor_xy(x, y)
 
     canvas.itemconfig(current_cell, fill=unselected_cell_colour)
 
@@ -959,8 +978,7 @@ def create_cell(x, y):
             anchor='nw')
 
     current_lines = ['']
-    current_line = 0
-    current_col  = 0
+    select_range(0, 0, 0, 0)
 
     canvas.tag_bind(current_cell, '<Button-1>', partial(click_cell, cell_id=current_cell))
 
