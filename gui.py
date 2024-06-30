@@ -395,7 +395,7 @@ def selection_text():
 def on_key_press(event):
     global current_line
     global current_col
-    print(f'{event=} {current_line=} {current_col=}')
+    #print(f'{event=} {current_line=} {current_col=}')
 
     if event.state == 0:
         pass
@@ -404,7 +404,7 @@ def on_key_press(event):
     elif event.state & MOVEMENT_MASK:
         pass
     else:
-        print(f'breaking on {event.state=:02x} unbound state {event=}')
+        #print(f'breaking on {event.state=:02x} unbound state {event=}')
         return 'break'
 
 
@@ -791,6 +791,71 @@ def click_near_cell(event):
     click_cell(event, cell_id=nearest_item)
 
 
+def select_word_at_mouse_cursor(event):
+    global current_col
+    global selection_line
+    global selection_col
+
+    break_chars = ' (),.'
+    print('\n\n\n\n\n\n\nselect word')
+    print(f'{current_line=}, {current_col=}')
+
+    line = current_lines[current_line]
+    print(f'{line=}')
+
+    current_col = min(current_col, len(line)-1)
+    c = line[current_col]
+    print(line)
+    print(current_col * ' ' + c)
+
+    if c in break_chars:
+        print('TODO check if cursor over a character')
+        return
+
+
+    lhs = line[:current_col]
+    rhs = line[current_col:]
+    print(f'{lhs=}')
+    print(f'{rhs=}')
+
+    lhs_offset = current_col
+    rhs_offset = current_col
+    print(f'{lhs_offset=}')
+    print(f'{rhs_offset=}')
+
+    print('left')
+    for i in range(lhs_offset-1, -1, -1):
+        print(i)
+        print((i, line[i]))
+        if line[i] in break_chars:
+            break
+        lhs_offset = i
+
+    print('right')
+    for i in range(rhs_offset, len(line)):
+        print((i, line[i]))
+        if line[i] in break_chars:
+            break
+        rhs_offset = i
+
+
+    print(f'{current_col=}')
+    print(f'{lhs_offset=}')
+    print(f'{rhs_offset=}')
+
+    selection_line = current_line
+    selection_col = rhs_offset + 1
+    current_col = lhs_offset
+
+    print(line[current_col:selection_col])
+    print(f'{current_line=}, {current_col=}')
+    print(f'{selection_line=}, {selection_col=}')
+
+    update_selection()
+
+    return
+
+
 def create_cell(x, y):
     global current_cell
     global current_lines
@@ -856,7 +921,7 @@ root.bind('<KeyPress-F1>', toggle_toolbox)
 canvas.bind('<MouseWheel>', on_windows_zoom)
 
 canvas.bind('<Button-1>', click_near_cell)
-canvas.bind('<Double-Button-1>', lambda x: print('select word'))
+canvas.bind('<Double-Button-1>', select_word_at_mouse_cursor)
 #canvas.bind('<Double-Button-1>', create_cell_here)
 canvas.bind('<B1-Motion>', on_button1_motion)
 
