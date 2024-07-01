@@ -437,6 +437,8 @@ def selection_text():
 
     if to_line < from_line:
         from_line, from_col, to_line, to_col = to_line, to_col, from_line, from_col
+    elif to_line == from_line and to_col < from_col:
+        from_col, to_col = to_col, from_col
 
     #print(current_lines)
     range_lines = current_lines[from_line:to_line+1]
@@ -1019,6 +1021,7 @@ def cut_selection(event):
 def copy_selection(event=None):
     #print('copy')
     new_text = selection_text()
+    print(f'copying: {new_text=}')
     root.clipboard_clear()
     root.clipboard_append(new_text)
 
