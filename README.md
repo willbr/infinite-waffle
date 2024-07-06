@@ -14,7 +14,7 @@ A silly text editor, inspired by [OneNote](https://en.wikipedia.org/wiki/Microso
 - [x] click to select cell
 - [ ] draw cell border
 - [x] zoom font size
-- [ ] key cursors
+- [x] key cursors
 - [ ] undo & redo
 - [ ] save & load
 - [ ] esc to recenter on current cell

@@ -89,6 +89,12 @@ vscrollbar.config(command=canvas.yview)
 current_tool = None
 current_cell = None
 
+current_line = None
+current_col  = None
+
+selection_line = None
+selection_col  = None
+
 layer = {
         'outline': {'visible': True},
         'colour': {'visible': True},
@@ -548,6 +554,8 @@ def on_backspace(event):
 
 
 def has_selection():
+    if selection_line is None:
+        return False
     #print(f'{current_line=}, {selection_line=}')
     #print(f'{current_col=}, {selection_col=}')
     r = current_line != selection_line or current_col != selection_col
@@ -557,11 +565,14 @@ def has_selection():
 def on_arrows(event):
     global current_line
     global current_col
+    global selection_line
+    global selection_col
 
     if has_selection():
         match event.keysym:
             case 'Left' | 'Up':
-                pass
+                selection_line = current_line 
+                selection_col = current_col 
             case 'Right' | 'Down':
                 current_line = selection_line
                 current_col = selection_col
@@ -588,6 +599,8 @@ def on_arrows(event):
         selection_line = current_line
         selection_col  = current_col 
 
+    #print(f'{current_line=} {current_col=}')
+    #print(f'{selection_line=} {selection_col=}')
     update_text_cursor()
     reset_cursor_flash()
 
