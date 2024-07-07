@@ -3,6 +3,7 @@ from tkinter.ttk import *
 from math import sqrt
 from functools import partial
 import tkinter.font as tkfont
+from textwrap import dedent
 
 root = Tk()
 root.geometry('800x600')
@@ -15,13 +16,12 @@ text_colour = '#eee'
 toolbox_font_spec = tkfont.Font(family="Georgia", size=20)
 
 cell_font_spec = tkfont.Font(family="Georgia", size=20)
-font_metrics = cell_font_spec.metrics()
 
 zoom_level = 5
 zoom_scales = [
     0.1, 0.25, 0.333, 0.5, 0.667,
     1,
-    1.5, 2, 3, 4, 5, 6, 7, 8,
+    1.5, 2, 3, 4, 5,
 ]
 
 
@@ -82,7 +82,6 @@ layer_label.pack(side=TOP, padx=10, pady=10)
 zoom_label = Label(toolbox, text=f' 100.00%', font=toolbox_font_spec, style='Custom.TLabel')
 zoom_label.pack(side=TOP, padx=10, pady=10)
 
-
 hscrollbar.config(command=canvas.xview)
 vscrollbar.config(command=canvas.yview)
 
@@ -120,35 +119,36 @@ def get_live_ids(tag_name=None):
     return live_layer_ids
 
 
-def on_canvas_resize(event=None):
-    #print('resize')
+def upate_scrollregion(event=None):
+    print('\nresize')
+
     bbox = canvas.bbox('all')
     #print(f'{bbox=}')
-    window_width, window_height = canvas.winfo_width(), canvas.winfo_height()
+    assert bbox is not None
 
-    if bbox is None:
-        x1 = -window_width
-        y1 = -window_height
-        x2 = window_width * 1
-        y2 = window_height * 1
-    else:
-        #print(bbox)
-        x1 = bbox[0] - bbox[2] - window_width
-        y1 = bbox[1] - bbox[3] - window_height
-        x2 = bbox[2] + bbox[2] + window_width
-        y2 = bbox[3] + bbox[3] + window_width
+    window_width, window_height = canvas.winfo_width(), canvas.winfo_height()
+    #print(f'{window_width=} {window_height=}')
+
+    font_metrics = cell_font_spec.metrics()
+    linespace = font_metrics['linespace']
+    #print(f'{linespace=}')
+
+    margin = linespace * 3
+    #print(f'{margin=}')
+
 
     scroll_region = canvas.cget("scrollregion")
+    #print(f'{scroll_region=}')
+
+    x1, y1 = 0 - margin, 0 - margin
+
+    x2 = bbox[2] + (window_width -  margin)
+    y2 = bbox[3] + (window_height - margin)
+
     if scroll_region == '':
-        #print('not set')
-        pass
-    else:
-        old_x1, old_y1, old_x2, old_y2 = (float(n) for n in scroll_region.split(' '))
-        #print(('old', old_x1, old_y1, old_x2, old_y2))
-        x1 = min(x1, old_x1)
-        y1 = min(y1, old_y1)
-        x2 = max(x2, old_x2)
-        y2 = max(y2, old_y2)
+        x2 = window_width  + margin
+        y2 = window_height + margin
+
 
     #print(('new', x1, y1, x2, y2))
 
@@ -156,20 +156,113 @@ def on_canvas_resize(event=None):
 
     canvas.config(
         xscrollcommand=hscrollbar.set,
-        yscrollcommand=vscrollbar.set)
+        yscrollcommand=vscrollbar.set,
+        )
+
+    visible = visible_bbox(reduce_to=1)
+
+    global scroll_id
+    if scroll_id is None:
+        print('init visible')
+        scroll_id = canvas.create_rectangle(
+                visible[0], visible[1],
+                visible[2], visible[3],
+                fill='#f00',
+                outline='',
+                tags='scroll')
+    else:
+        print('update visible')
+        canvas.coords(scroll_id, *visible)
+
+    print(f'{visible=}')
+
+    canvas.tag_lower(scroll_id)
+
+
+def visible_bbox(reduce_to=1.0):
+    x1 = canvas.canvasx(0)
+    y1 = canvas.canvasy(0)
+    x2 = canvas.canvasx(canvas.winfo_width())
+    y2 = canvas.canvasy(canvas.winfo_height())
+
+    width  = x2 - x1
+    height = y2 - y1
+
+    print(f'{width=}, {height=}')
+
+    reduced_width  = width * reduce_to
+    reduced_height = height * reduce_to
+
+    delta_x = width  - reduced_width
+    delta_y = height - reduced_height
+
+    x1 += delta_x
+    y1 += delta_y
+
+    x2 -= delta_x
+    y2 -= delta_y
+
+    return x1, y1, x2, y2
+
+
+def point_inside_rect(x, y, rect):
+    rx1, ry1, rx2, ry2 = rect
+    outside = x < rx1 or x > rx2 or y < ry1 or y > ry2
+    return not outside
+
+
+def scroll_to_center(event=None):
+    print('center')
+
+    bbox = canvas.bbox('all')
+    print(f'{bbox=}')
+
+    scroll_region = [float(s) for s in canvas.cget("scrollregion").split(' ')]
+    x1, y1, x2, y2 = scroll_region
+    print(f'{scroll_region=}')
+
+    font_metrics = cell_font_spec.metrics()
+    linespace = font_metrics['linespace']
+
+    x_width  = x2 - x1
+    y_height = y2 - y1
+
+    x, y = line_col_to_xy(current_line, current_col)
+    print(f'{x=}, {y=}')
+
+    visible = visible_bbox(reduce_to=0.8)
+    print(f'{visible=}')
+
+    cursor_on_screen = point_inside_rect(x, y, visible) and point_inside_rect(x, y + linespace, visible)
+    if cursor_on_screen:
+        print('no change')
+        return
+
+    xview = x / x_width
+    yview = y / y_height
+    print(f'{xview=}, {yview=}')
+
+
+    canvas.xview_moveto(xview)
+    canvas.yview_moveto(yview)
 
 
 def on_windows_zoom(event):
     ctrl_is_down = event.state == 4
-    if ctrl_is_down == False:
-        return
+
     x = canvas.canvasx(event.x)
     y = canvas.canvasy(event.y)
 
-    if event.delta > 0:
-        zoom(x, y, 1)
+    if ctrl_is_down:
+        if event.delta > 0:
+            zoom(x, y, 1)
+        else:
+            zoom(x, y, -1)
     else:
-        zoom(x, y, -1)
+        if event.delta > 0:
+            pass
+        else:
+            pass
 
 
 def zoom(x, y, step):
@@ -243,14 +336,14 @@ def zoom_scroll_region(zoom_step_scale):
 
     canvas.config(scrollregion=(x1, y1, x2, y2))
 
-    on_canvas_resize()
+    upate_scrollregion()
 
 
 #canvas.config(cursor='crosshair')
 #canvas.config(cursor='none')
 canvas.config(cursor="ibeam")
 
-canvas.bind('<Configure>', on_canvas_resize)
+canvas.bind('<Configure>', upate_scrollregion)
 
 
 def start_panning(event):
@@ -475,7 +568,7 @@ def selection_text():
 
 
 def on_key_press(event):
-    #print(f'{event=} {current_line=} {current_col=}')
+    print(f'{event=} {current_line=} {current_col=}')
 
     if event.state == 0:
         pass
@@ -509,10 +602,14 @@ def on_key_press(event):
     reset_cursor_flash()
 
 
+
 def render_text():
     text = '\n'.join(current_lines)
     #print(repr(text))
     canvas.itemconfig(current_cell, text=text)
+
+    upate_scrollregion()
+    scroll_to_center()
 
 
 def on_return(event):
@@ -603,6 +700,7 @@ def on_arrows(event):
     #print(f'{selection_line=} {selection_col=}')
     update_text_cursor()
     reset_cursor_flash()
+    scroll_to_center()
 
 
 current_lines = ['']
@@ -616,10 +714,10 @@ selection_col  = 0
 
 cursor_colour = 'white'
 cursor_width = 1
-cursor_height = font_metrics["ascent"] + 2
-linespace = font_metrics['linespace']
+#linespace = font_metrics['linespace']
 
 cursor_id = None
+scroll_id = None
 
 def update_text_cursor():
     line = current_lines[current_line]
@@ -646,6 +744,10 @@ def update_text_cursor():
 
 def create_cursor(x, y):
     global cursor_id
+
+    font_metrics = cell_font_spec.metrics()
+    linespace = font_metrics['linespace']
+
     cursor_id = canvas.create_rectangle(
             x-(cursor_width//2),
             y,
@@ -972,9 +1074,8 @@ def create_cell(x, y):
     global current_line
     global current_col
 
+    font_metrics = cell_font_spec.metrics()
     y -= font_metrics['ascent'] // 2
-
-    set_cursor_xy(x, y)
 
     current_cell = canvas.create_text(
             x, y,
@@ -987,12 +1088,6 @@ def create_cell(x, y):
     select_range(0, 0, 0, 0)
 
     canvas.tag_bind(current_cell, '<Button-1>', partial(click_cell, cell_id=current_cell))
-
-
-def create_cell_here(event):
-    x = canvas.canvasx(event.x)
-    y = canvas.canvasy(event.y)
-    create_cell(x, y)
 
 
 def on_button1_motion(event):
@@ -1054,9 +1149,11 @@ def paste_from_clipboard(event):
     reset_cursor_flash()
 
 
-create_cursor(100, 50)
+create_cursor(0, 0)
+create_cell(0, 0)
+update_text_cursor()
 flash_cursor()
-create_cell(100, 50)
+
 
 root.bind('<KeyPress-F1>', toggle_toolbox)
 
@@ -1064,7 +1161,6 @@ canvas.bind('<MouseWheel>', on_windows_zoom)
 
 canvas.bind('<Button-1>', click_near_cell)
 canvas.bind('<Double-Button-1>', select_word_at_mouse_cursor)
-#canvas.bind('<Double-Button-1>', create_cell_here)
 canvas.bind('<B1-Motion>', on_button1_motion)
 
 root.bind('<KeyPress>', on_key_press)
@@ -1079,7 +1175,7 @@ root.bind('<Down>',  on_arrows)
 root.bind('<Left>',  on_arrows)
 root.bind('<Right>', on_arrows)
 
-root.bind('<Escape>', lambda e: print('centre'))
+root.bind('<Escape>', scroll_to_center)
 
 root.bind('<Control-a>', select_all)
 root.bind('<Mod1-a>',    select_all)
@@ -1092,19 +1188,34 @@ root.bind('<Control-y>', lambda e: print('redo'))
 
 
 def type_example_text():
-    text = """one two three four five
-six seven eight nine
-ten"""
+    global current_lines
+    text = """
+"""
     for char in text:
         #print(repr(char))
+        kwargs = {}
         match char:
             case ' ':
                 cmd = '<KeyPress-space>'
             case '\n':
                 cmd = '<KeyPress-Return>'
+            case '>':
+                cmd = '<KeyPress>'
+                kwargs['keysym'] = 'greater'
             case other:
                 cmd = f'<KeyPress-{char}>'
-        canvas.event_generate(cmd)
+        canvas.event_generate(cmd, **kwargs)
+
+    current_lines = dedent(r'''
+    # include <stdio.h>
+
+    int main(int argc, char **argv) {
+        printf("hello, world!\n");
+        return 0;
+    }
+
+    ''').split('\n')
+    render_text()
 
 root.after(100, type_example_text)
 #root.wm_state('zoomed')
