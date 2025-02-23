@@ -231,6 +231,9 @@ main(void) {
             w->render(w, w->x, w->y, w->width, w->height);
         }
         EndMode2D();
+
+        DrawFPS(10, 10);
+
         EndDrawing();
     }
 
