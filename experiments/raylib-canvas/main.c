@@ -152,7 +152,10 @@ Window *loadWindowFromDll(const char *dllPath, float x, float y) {
     return window;
 }
 
-int main(void) {
+int
+main(void) {
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
+
     // Initialize raylib
     InitWindow(1280, 720, "Infinite Canvas");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
