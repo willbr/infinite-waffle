@@ -188,9 +188,9 @@ int main(void) {
             Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), camera);
             camera.offset = GetMousePosition();
             camera.target = mouseWorld;
-            camera.zoom += wheel * 0.125f;
-            if (camera.zoom < 0.1f) camera.zoom = 0.1f;
-            if (camera.zoom > 5.0f) camera.zoom = 5.0f;
+            camera.zoom += wheel * 0.25f;
+            if (camera.zoom < 0.01f) camera.zoom = 0.01f;
+            if (camera.zoom > 100.0f) camera.zoom = 100.0f;
         }
 
         // Handle mouse click events
